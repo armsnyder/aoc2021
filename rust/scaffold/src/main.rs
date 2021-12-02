@@ -10,9 +10,9 @@ fn main() {
     let day = env::args().nth(1).ok_or("expected day argument").unwrap().parse().unwrap();
     let path = find_root().join("rust").join(format!("d{:02}", day));
     with_path(&path, scaffold_cargo_project, path_is_new);
-    with_path(&path.join("input.txt"), scaffold_input(2021, day), path_is_new);
     with_path(&path.join("src").join("main.rs"), scaffold_main, file_contains(include_str!("templates/main.rs.default.tpl")));
     with_path(&path.join("src").join("testdata"), scaffold_testdata, path_is_new);
+    with_path(&path.join("input.txt"), scaffold_input(2021, day), path_is_new);
 }
 
 fn find_root() -> PathBuf {
