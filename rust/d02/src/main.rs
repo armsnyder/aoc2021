@@ -9,17 +9,45 @@ fn main() {
 }
 
 fn part1<R: Read>(reader: BufReader<R>) -> String {
+    let mut distance = 0;
+    let mut depth = 0;
     for line in reader.lines() {
         let line = line.unwrap();
+        let mut line = line.split_whitespace();
+        let direction = line.next().unwrap();
+        let value = line.next().unwrap();
+        let value: i32 = value.parse().unwrap();
+        match direction {
+            "forward" => distance += value,
+            "down" => depth += value,
+            "up" => depth -= value,
+            _ => (),
+        }
     }
-    return String::new();
+    (distance * depth).to_string()
 }
 
 fn part2<R: Read>(reader: BufReader<R>) -> String {
+    let mut aim = 0;
+    let mut horiz = 0;
+    let mut depth = 0;
     for line in reader.lines() {
         let line = line.unwrap();
+        let mut line = line.split_whitespace();
+        let direction = line.next().unwrap();
+        let value = line.next().unwrap();
+        let value: i32 = value.parse().unwrap();
+        match direction {
+            "forward" => {
+                horiz += value;
+                depth += aim * value;
+            }
+            "down" => aim += value,
+            "up" => aim -= value,
+            _ => (),
+        }
     }
-    return String::new();
+    (horiz * depth).to_string()
 }
 
 fn read_input() -> BufReader<File> {
@@ -39,12 +67,12 @@ mod tests {
 
     #[test]
     fn test_part1() {
-        assert_eq!(part1(BufReader::new(BASIC)), "")
+        assert_eq!(part1(BufReader::new(BASIC)), "150")
     }
 
     #[test]
     fn test_part2() {
-        assert_eq!(part2(BufReader::new(BASIC)), "")
+        assert_eq!(part2(BufReader::new(BASIC)), "900")
     }
 
     #[bench]
