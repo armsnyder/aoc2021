@@ -47,7 +47,7 @@ mod tests {
 
     use super::*;
 
-    static BASIC: &[u8] = include_str!("testdata/basic.txt").as_bytes();
+    const BASIC: &[u8] = include_str!("testdata/basic.txt").as_bytes();
 
     #[test]
     fn test_part1() {
