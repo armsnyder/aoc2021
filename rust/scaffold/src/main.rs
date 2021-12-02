@@ -45,7 +45,7 @@ fn path_is_new(path: &PathBuf) -> bool {
 fn file_contains<'a>(substr: &'a str) -> Box<dyn Fn(&PathBuf) -> bool + 'a> {
     Box::new(move |path| {
         let contents = match fs::read_to_string(path) {
-            Err(e) if e.kind() == NotFound => { String::new() }
+            Err(e) if e.kind() == NotFound => { return false }
             Err(e) => { panic!("{}", e) }
             Ok(c) => { c }
         };
