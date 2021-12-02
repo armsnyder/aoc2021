@@ -1,17 +1,14 @@
 #![feature(test)]
-extern crate test;
 
-use std::fs;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Error, Read};
-use test::Bencher;
+use std::io::{BufRead, BufReader, Read};
 
 fn main() {
-    println!("Part 1: {}", part1(read_input()).unwrap());
-    println!("Part 2: {}", part2(read_input()).unwrap());
+    println!("{}", part1(read_input()));
+    println!("{}", part2(read_input()));
 }
 
-fn part1<R: Read>(reader: BufReader<R>) -> Result<String, Error> {
+fn part1<R: Read>(reader: BufReader<R>) -> String {
     let mut prev = i32::MAX;
     let mut total = 0;
     for line in reader.lines() {
@@ -21,10 +18,10 @@ fn part1<R: Read>(reader: BufReader<R>) -> Result<String, Error> {
         }
         prev = cur;
     }
-    return Ok(total.to_string());
+    return total.to_string();
 }
 
-fn part2<R: Read>(reader: BufReader<R>) -> Result<String, Error> {
+fn part2<R: Read>(reader: BufReader<R>) -> String {
     let mut total = 0;
     let mut buf = [0; 3];
     for (i, line) in reader.lines().enumerate() {
@@ -34,27 +31,45 @@ fn part2<R: Read>(reader: BufReader<R>) -> Result<String, Error> {
         }
         buf[i % 3] = cur;
     }
-    return Ok(total.to_string());
+    return total.to_string();
 }
 
 fn read_input() -> BufReader<File> {
     BufReader::new(File::open("input.txt").unwrap())
 }
 
-#[bench]
-fn bench_part1(b: &mut Bencher) {
-    let input = fs::read_to_string("input.txt").unwrap();
-    let input = input.as_bytes();
-    b.iter(|| {
-        part1(BufReader::new(input)).unwrap()
-    })
-}
+#[cfg(test)]
+mod tests {
+    extern crate test;
 
-#[bench]
-fn bench_part2(b: &mut Bencher) {
-    let input = fs::read_to_string("input.txt").unwrap();
-    let input = input.as_bytes();
-    b.iter(|| {
-        part2(BufReader::new(input)).unwrap()
-    })
+    use std::fs;
+    use test::Bencher;
+
+    use super::*;
+
+    static BASIC: &[u8] = include_str!("testdata/basic.txt").as_bytes();
+
+    #[test]
+    fn test_part1() {
+        assert_eq!(part1(BufReader::new(BASIC)), "7")
+    }
+
+    #[test]
+    fn test_part2() {
+        assert_eq!(part2(BufReader::new(BASIC)), "5")
+    }
+
+    #[bench]
+    fn bench_part1(b: &mut Bencher) {
+        let input = fs::read_to_string("input.txt").unwrap();
+        let input = input.as_bytes();
+        b.iter(|| part1(BufReader::new(input)))
+    }
+
+    #[bench]
+    fn bench_part2(b: &mut Bencher) {
+        let input = fs::read_to_string("input.txt").unwrap();
+        let input = input.as_bytes();
+        b.iter(|| part2(BufReader::new(input)))
+    }
 }
