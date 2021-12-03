@@ -1,7 +1,7 @@
 #![feature(test)]
 
 use std::cmp::Ordering;
-use std::convert::identity;
+use std::convert;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 
@@ -69,7 +69,7 @@ fn calculate_rating(numbers: &Vec<u32>, num_digits: u32, should_follow_zeros: fn
         let ones_seek = mask + 1 >> 1;
         let ones_index = candidates
             .binary_search_by(|number| { (number & mask).cmp(&ones_seek) })
-            .unwrap_or_else(identity);
+            .unwrap_or_else(convert::identity);
 
         if ones_index < candidates.len() {
             let zeros_compared_to_ones = (ones_index * 2).cmp(&candidates.len());
