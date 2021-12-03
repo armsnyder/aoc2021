@@ -63,10 +63,10 @@ fn bitwise_invert(value: u32, num_digits: u32) -> u32 {
 
 fn calculate_rating(numbers: &Vec<u32>, num_digits: u32, should_follow_zeros: fn(zeros_compared_to_ones: Ordering) -> bool) -> u32 {
     let mut candidates = &numbers[..];
-    let mut mask = (1 << num_digits) - 1;
+    let mut mask = 1 << num_digits - 1;
 
     while candidates.len() > 1 {
-        let ones_seek = (mask + 1) >> 1;
+        let ones_seek = mask + 1 >> 1;
         let ones_index = candidates
             .binary_search_by(|number| { (number & mask).cmp(&ones_seek) })
             .unwrap_or_else(identity);
