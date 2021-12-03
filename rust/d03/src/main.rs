@@ -74,11 +74,11 @@ fn calculate_rating(numbers: &Vec<u32>, num_digits: u32, should_follow_zeros: fn
         if ones_index < candidates.len() {
             let zeros_compared_to_ones = (ones_index * 2).cmp(&candidates.len());
 
-            if should_follow_zeros(zeros_compared_to_ones) {
-                candidates = &candidates[0..ones_index];
+            candidates = if should_follow_zeros(zeros_compared_to_ones) {
+                &candidates[0..ones_index]
             } else {
-                candidates = &candidates[ones_index..candidates.len()];
-            }
+                &candidates[ones_index..candidates.len()]
+            };
         }
 
         mask >>= 1;
