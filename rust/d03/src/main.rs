@@ -1,5 +1,6 @@
 #![feature(test)]
 
+use std::cmp::Ordering;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 
@@ -9,98 +10,71 @@ fn main() {
 }
 
 fn part1<R: Read>(reader: BufReader<R>) -> String {
-    let mut line_count: u32 = 0;
-    let mut totals: Vec<u32> = Vec::new();
-    for (i, line) in reader.lines().enumerate() {
-        let line = line.unwrap();
-        if i == 0 {
-            totals.resize(line.len(), 0);
+    let (numbers, num_digits) = parse_input(reader);
+
+    let gamma = (0..num_digits).fold(0, |accum, index_rl| {
+        if compare_ones_occurrences(&numbers, index_rl).is_gt() {
+            accum | 1 << index_rl
+        } else {
+            accum
         }
-        line_count += 1;
-        for (i, ch) in line.chars().enumerate() {
-            totals[i] += ch.to_digit(10).unwrap();
-        }
-    }
-    let mask = (2 << totals.len() - 1) - 1;
-    let mut gamma = 0;
-    let average = line_count / 2;
-    for (i, val) in totals.iter().rev().enumerate() {
-        if *val > average {
-            gamma |= 1 << i;
-        }
-    }
-    let epsilon = (-1 ^ gamma) & mask;
+    });
+
+    let epsilon = bitwise_invert(gamma, num_digits);
+
     return (gamma * epsilon).to_string();
 }
 
 fn part2<R: Read>(reader: BufReader<R>) -> String {
-    let mut values: Vec<u16> = Vec::new();
-    let mut columns = 0;
-    for (i, line) in reader.lines().enumerate() {
-        let line = line.unwrap();
-        if i == 0 {
-            columns = line.len() as u16;
-        }
-        let value = u16::from_str_radix(line.as_str(), 2).unwrap();
-        values.push(value);
-    }
-    let oxygen = calculate_rating(&values, columns, |dom| {
-        match dom {
-            DominantDigit::Ones => 1,
-            DominantDigit::Zeros => 0,
-            DominantDigit::Equal => 1,
-        }
-    });
-    let co2 = calculate_rating(&values, columns, |dom| {
-        match dom {
-            DominantDigit::Ones => 0,
-            DominantDigit::Zeros => 1,
-            DominantDigit::Equal => 0,
-        }
-    });
-    return ((oxygen as u32) * (co2 as u32)).to_string();
+    let (numbers, num_digits) = parse_input(reader);
+
+    let oxygen = calculate_rating(&numbers, num_digits, Ordering::is_ge);
+    let co2 = calculate_rating(&numbers, num_digits, Ordering::is_lt);
+
+    return (oxygen * co2).to_string();
 }
 
-enum DominantDigit {
-    Ones,
-    Zeros,
-    Equal,
+fn parse_input<R: Read>(reader: BufReader<R>) -> (Vec<u32>, u32) {
+    let mut num_digits = 0;
+
+    let numbers: Vec<u32> = reader.lines()
+        .map(|line| { line.unwrap() })
+        .inspect(|line| { num_digits = line.len() as u32 })
+        .map(|line| { u32::from_str_radix(line.as_str(), 2).unwrap() })
+        .collect();
+
+    (numbers, num_digits)
 }
 
-fn calculate_rating(values: &Vec<u16>, columns: u16, keeper: fn(DominantDigit) -> u16) -> u16 {
-    let mut considering = values.clone();
-    for i in 0..columns {
-        let minus_i = (columns - i - 1) as u16;
-        let keep = keeper(find_dominant_digit(&considering, minus_i));
-        let mut next_considering = Vec::new();
-        for consider in considering {
-            let digit = (consider & (1 << minus_i)) >> minus_i;
-            if digit == keep {
-                next_considering.push(consider);
-            }
-        }
-        considering = next_considering;
-        if considering.len() == 1 {
+fn compare_ones_occurrences(numbers: &Vec<u32>, index_rl: u32) -> Ordering {
+    let num_ones = numbers.iter().fold(0, |accum, &number| {
+        accum + (number >> index_rl & 1)
+    });
+
+    (num_ones * 2).cmp(&(numbers.len() as u32))
+}
+
+fn bitwise_invert(value: u32, num_digits: u32) -> u32 {
+    (u32::MAX ^ value) & (1 << num_digits) - 1
+}
+
+fn calculate_rating(numbers: &Vec<u32>, num_digits: u32, is_one_desired: fn(ones_ordering: Ordering) -> bool) -> u32 {
+    let mut candidates = numbers.clone();
+
+    for index_lr in (0..num_digits).rev() {
+        let ones_ordering = compare_ones_occurrences(&candidates, index_lr);
+        let desired_digit: u32 = if is_one_desired(ones_ordering) { 1 } else { 0 };
+        candidates = candidates.into_iter()
+            .filter(|&candidate| {
+                (candidate & 1 << index_lr) >> index_lr == desired_digit
+            })
+            .collect();
+        if candidates.len() <= 1 {
             break;
         }
     }
-    return *considering.iter().next().unwrap();
-}
 
-fn find_dominant_digit(values: &Vec<u16>, i: u16) -> DominantDigit {
-    let mut total = 0;
-    let half = values.len() / 2;
-    let ceil_half = if half * 2 == values.len() { half } else { half + 1 };
-    for v in values {
-        if (v & (1 << i)) >> i == 1 {
-            total += 1;
-        }
-    }
-    match total {
-        total if total > half => DominantDigit::Ones,
-        total if total < ceil_half => DominantDigit::Zeros,
-        _ => DominantDigit::Equal,
-    }
+    candidates[0].into()
 }
 
 fn read_input() -> BufReader<File> {
