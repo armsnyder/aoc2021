@@ -41,7 +41,7 @@ fn parse_input<R: Read>(reader: BufReader<R>) -> (Vec<u32>, u32) {
     let mut num_digits = 0;
 
     let numbers: Vec<u32> = reader.lines()
-        .map(|line| { line.unwrap() })
+        .map(Result::unwrap)
         .inspect(|line| { num_digits = line.len() as u32 })
         .map(|line| { u32::from_str_radix(line.as_str(), 2).unwrap() })
         .collect();
