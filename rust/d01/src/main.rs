@@ -8,7 +8,7 @@ fn main() {
     println!("{}", part2(read_input()));
 }
 
-fn part1<R: Read>(reader: BufReader<R>) -> String {
+fn part1<R: BufRead>(reader: R) -> String {
     let mut prev = i32::MAX;
     let mut total = 0;
     for line in reader.lines() {
@@ -21,7 +21,7 @@ fn part1<R: Read>(reader: BufReader<R>) -> String {
     return total.to_string();
 }
 
-fn part2<R: Read>(reader: BufReader<R>) -> String {
+fn part2<R: BufRead>(reader: R) -> String {
     let mut total = 0;
     let mut buf = [0; 3];
     for (i, line) in reader.lines().enumerate() {

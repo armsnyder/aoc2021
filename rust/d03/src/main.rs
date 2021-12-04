@@ -10,7 +10,7 @@ fn main() {
     println!("{}", part2(read_input()));
 }
 
-fn part1<R: Read>(reader: BufReader<R>) -> String {
+fn part1<R: BufRead>(reader: R) -> String {
     let (numbers, num_digits) = parse_input(reader);
 
     let gamma = (0..num_digits).fold(0, |accum, index_rl| {
@@ -26,7 +26,7 @@ fn part1<R: Read>(reader: BufReader<R>) -> String {
     return (gamma * epsilon).to_string();
 }
 
-fn part2<R: Read>(reader: BufReader<R>) -> String {
+fn part2<R: BufRead>(reader: R) -> String {
     let (mut numbers, num_digits) = parse_input(reader);
 
     numbers.sort();

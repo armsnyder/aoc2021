@@ -50,7 +50,6 @@ const SIZE: usize = 5;
 
 type Number = i32;
 
-#[derive(PartialEq, Eq, Hash)]
 struct Board {
     numbers: [[Number; SIZE]; SIZE],
     marked: [[bool; SIZE]; SIZE],

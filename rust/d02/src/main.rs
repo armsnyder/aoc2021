@@ -8,7 +8,7 @@ fn main() {
     println!("{}", part2(read_input()));
 }
 
-fn part1<R: Read>(reader: BufReader<R>) -> String {
+fn part1<R: BufRead>(reader: R) -> String {
     let mut distance = 0;
     let mut depth = 0;
     for line in reader.lines() {
@@ -27,7 +27,7 @@ fn part1<R: Read>(reader: BufReader<R>) -> String {
     (distance * depth).to_string()
 }
 
-fn part2<R: Read>(reader: BufReader<R>) -> String {
+fn part2<R: BufRead>(reader: R) -> String {
     let mut aim = 0;
     let mut horiz = 0;
     let mut depth = 0;

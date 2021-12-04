@@ -1,24 +1,24 @@
 #![feature(test)]
 
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader};
 
 fn main() {
     println!("{}", part1(read_input()));
     println!("{}", part2(read_input()));
 }
 
-fn part1<R: Read>(reader: BufReader<R>) -> String {
-    for line in reader.lines() {
-        let line = line.unwrap();
-    }
+fn part1<R: BufRead>(reader: R) -> String {
+    reader.lines()
+        .map(Result::unwrap);
+
     return String::new();
 }
 
-fn part2<R: Read>(reader: BufReader<R>) -> String {
-    for line in reader.lines() {
-        let line = line.unwrap();
-    }
+fn part2<R: BufRead>(reader: R) -> String {
+    reader.lines()
+        .map(Result::unwrap);
+
     return String::new();
 }
 
