@@ -52,24 +52,20 @@ fn part2<R: BufRead>(reader: R) -> String {
     panic!("no result");
 }
 
-type Number = u32;
-
 const SIZE: usize = 5;
 
-const MARKED: Number = 0;
-
 struct Board {
-    numbers: [[Number; SIZE]; SIZE],
+    numbers: [[u32; SIZE]; SIZE],
 }
 
 impl Board {
-    fn mark(&mut self, n: Number) -> bool {
+    fn mark(&mut self, n: u32) -> bool {
         for i in 0..SIZE {
             for j in 0..SIZE {
                 if self.numbers[i][j] == n {
-                    self.numbers[i][j] = MARKED;
-                    return (0..SIZE).all(|i| { self.numbers[i][j] == MARKED }) ||
-                        (0..SIZE).all(|j| { self.numbers[i][j] == MARKED });
+                    self.numbers[i][j] = 0;
+                    return (0..SIZE).all(|i| { self.numbers[i][j] == 0 }) ||
+                        (0..SIZE).all(|j| { self.numbers[i][j] == 0 });
                 }
             }
         }
@@ -77,18 +73,12 @@ impl Board {
         return false;
     }
 
-    fn sum_unmarked(&self) -> Number {
-        (0..SIZE)
-            .flat_map(|i| {
-                (0..SIZE)
-                    .filter(move |&j| { self.numbers[i][j] != MARKED })
-                    .map(move |j| { self.numbers[i][j] })
-            })
-            .sum()
+    fn sum_unmarked(&self) -> u32 {
+        self.numbers.iter().flatten().sum()
     }
 }
 
-fn parse_input<R: BufRead>(reader: R) -> (Vec<Board>, Vec<Number>) {
+fn parse_input<R: BufRead>(reader: R) -> (Vec<Board>, Vec<u32>) {
     let mut lines = reader.lines();
 
     let numbers = lines
@@ -98,7 +88,7 @@ fn parse_input<R: BufRead>(reader: R) -> (Vec<Board>, Vec<Number>) {
         .split(",")
         .map(str::parse)
         .map(Result::unwrap)
-        .collect::<Vec<Number>>();
+        .collect::<Vec<u32>>();
 
     let _ = lines.next();
 
@@ -116,7 +106,7 @@ fn next_board<T: Iterator<Item=Result<String, D>>, D: Debug>(it: &mut T) -> Opti
         .map(Result::unwrap)
         .take_while(|s| { !s.is_empty() })
         .map(parse_row)
-        .collect::<Vec<[Number; SIZE]>>()
+        .collect::<Vec<[u32; SIZE]>>()
         .as_slice()
         .try_into() {
         Err(_) => None,
@@ -124,12 +114,12 @@ fn next_board<T: Iterator<Item=Result<String, D>>, D: Debug>(it: &mut T) -> Opti
     }
 }
 
-fn parse_row(row: String) -> [Number; SIZE] {
+fn parse_row(row: String) -> [u32; SIZE] {
     row
         .split_whitespace()
         .map(str::parse)
         .map(Result::unwrap)
-        .collect::<Vec<Number>>()
+        .collect::<Vec<u32>>()
         .as_slice()
         .try_into()
         .unwrap()
