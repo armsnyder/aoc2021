@@ -13,10 +13,9 @@ fn part1<R: BufRead>(reader: R) -> String {
     let (mut boards, numbers) = parse_input(reader);
 
     for n in numbers {
-        for b in &mut boards {
-            b.mark(n);
-            if b.has_bingo() {
-                return (b.sum_unmarked() * n).to_string();
+        for board in &mut boards {
+            if board.mark(n) {
+                return (board.sum_unmarked() * n).to_string();
             }
         }
     }
@@ -27,57 +26,62 @@ fn part1<R: BufRead>(reader: R) -> String {
 fn part2<R: BufRead>(reader: R) -> String {
     let (mut boards, numbers) = parse_input(reader);
 
+    let mut solved_boards = vec![false; boards.len()];
+    let mut remainder = boards.len();
+
     for n in numbers {
-        let final_board = boards.len() == 1;
-
-        for b in &mut boards {
-            b.mark(n);
-            if final_board && b.has_bingo() {
-                return (b.sum_unmarked() * n).to_string();
+        for i in 0..boards.len() {
+            if solved_boards[i] {
+                continue;
             }
-        }
 
-        boards = boards
-            .into_iter()
-            .filter(|b| { !b.has_bingo() })
-            .collect();
-    }
+            let board = &mut boards[i];
+            let bingo = board.mark(n);
 
-    panic!("no result");
-}
+            if bingo {
+                solved_boards[i] = true;
+                remainder -= 1;
 
-const SIZE: usize = 5;
-
-type Number = i32;
-
-struct Board {
-    numbers: [[Number; SIZE]; SIZE],
-    marked: [[bool; SIZE]; SIZE],
-}
-
-impl Board {
-    fn mark(&mut self, n: Number) {
-        for i in 0..SIZE {
-            for j in 0..SIZE {
-                if self.numbers[i][j] == n {
-                    self.marked[i][j] = true;
+                if remainder == 0 {
+                    return (board.sum_unmarked() * n).to_string();
                 }
             }
         }
     }
 
-    fn has_bingo(&self) -> bool {
-        (0..SIZE).any(|i| {
-            (0..SIZE).all(|j| { self.marked[i][j] }) ||
-                (0..SIZE).all(|j| { self.marked[j][i] })
-        })
+    panic!("no result");
+}
+
+type Number = u32;
+
+const SIZE: usize = 5;
+
+const MARKED: Number = 0;
+
+struct Board {
+    numbers: [[Number; SIZE]; SIZE],
+}
+
+impl Board {
+    fn mark(&mut self, n: Number) -> bool {
+        for i in 0..SIZE {
+            for j in 0..SIZE {
+                if self.numbers[i][j] == n {
+                    self.numbers[i][j] = MARKED;
+                    return (0..SIZE).all(|i| { self.numbers[i][j] == MARKED }) ||
+                        (0..SIZE).all(|j| { self.numbers[i][j] == MARKED });
+                }
+            }
+        }
+
+        return false;
     }
 
     fn sum_unmarked(&self) -> Number {
         (0..SIZE)
             .flat_map(|i| {
                 (0..SIZE)
-                    .filter(move |&j| { !self.marked[i][j] })
+                    .filter(move |&j| { self.numbers[i][j] != MARKED })
                     .map(move |j| { self.numbers[i][j] })
             })
             .sum()
@@ -116,7 +120,7 @@ fn next_board<T: Iterator<Item=Result<String, D>>, D: Debug>(it: &mut T) -> Opti
         .as_slice()
         .try_into() {
         Err(_) => None,
-        Ok(numbers) => Some(Board { numbers, marked: [[false; SIZE]; SIZE] })
+        Ok(numbers) => Some(Board { numbers })
     }
 }
 
