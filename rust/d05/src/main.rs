@@ -1,7 +1,9 @@
 #![feature(test)]
 
+use std::cmp::Ordering;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::ops::AddAssign;
 
 fn main() {
     println!("{}", part1(read_input()));
@@ -34,47 +36,76 @@ fn part2<R: BufRead>(reader: R) -> String {
 const SIZE: usize = 1000;
 
 type Grid = [[u8; SIZE]; SIZE];
-type Point = (i16, i16);
-type Line = (Point, Point);
+
+#[derive(PartialEq, Clone, Copy)]
+struct Point(i16, i16);
+
+impl FromIterator<i16> for Point {
+    fn from_iter<T: IntoIterator<Item=i16>>(iter: T) -> Self {
+        let mut iter = iter.into_iter();
+        Point(iter.next().unwrap(), iter.next().unwrap())
+    }
+}
+
+impl AddAssign for Point {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+        self.1 += rhs.1;
+    }
+}
+
+#[derive(Clone)]
+struct Line(Point, Point);
+
+impl FromIterator<Point> for Line {
+    fn from_iter<T: IntoIterator<Item=Point>>(iter: T) -> Self {
+        let mut iter = iter.into_iter();
+        Line(iter.next().unwrap(), iter.next().unwrap())
+    }
+}
 
 fn parse_line(s: String) -> Line {
-    let points = s
+    s
         .split(" -> ")
         .map(|point| {
-            let coords = point
+            point
                 .split(",")
                 .map(str::parse)
                 .map(Result::unwrap)
-                .collect::<Vec<i16>>();
-            (coords[0], coords[1])
+                .collect::<Point>()
         })
-        .collect::<Vec<Point>>();
-    (points[0], points[1])
+        .collect::<Line>()
 }
 
 fn no_diagonals(line: &Line) -> bool {
-    return line.0.0 == line.1.0 || line.0.1 == line.1.1;
+    line.0.0 == line.1.0 || line.0.1 == line.1.1
 }
 
 fn draw_line(line: &Line, grid: &mut Grid) {
-    let di = match line.1.0.cmp(&line.0.0) {
-        core::cmp::Ordering::Equal => 0,
-        core::cmp::Ordering::Greater => 1,
-        core::cmp::Ordering::Less => -1,
-    };
+    let delta = calculate_delta(&line);
 
-    let dj = match line.1.1.cmp(&line.0.1) {
-        core::cmp::Ordering::Equal => 0,
-        core::cmp::Ordering::Greater => 1,
-        core::cmp::Ordering::Less => -1,
-    };
-
-    let mut cur = line.0;
+    let mut cur = line.0.clone();
 
     grid[cur.0 as usize][cur.1 as usize] += 1;
+
     while cur != line.1 {
-        cur = (cur.0 + di, cur.1 + dj);
+        cur += delta;
         grid[cur.0 as usize][cur.1 as usize] += 1;
+    }
+}
+
+fn calculate_delta(line: &Line) -> Point {
+    Point(
+        calculate_delta_coord(line.1.0.cmp(&line.0.0)),
+        calculate_delta_coord(line.1.1.cmp(&line.0.1)),
+    )
+}
+
+fn calculate_delta_coord(ordering: Ordering) -> i16 {
+    match ordering {
+        Ordering::Equal => 0,
+        Ordering::Greater => 1,
+        Ordering::Less => -1,
     }
 }
 
