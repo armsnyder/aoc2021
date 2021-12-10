@@ -11,7 +11,8 @@ fn main() {
 fn part1<R: BufRead>(reader: R) -> String {
     let mut stack = Vec::new();
 
-    reader.lines()
+    reader
+        .lines()
         .map(Result::unwrap)
         .filter_map(|line| { autocomplete_line(&line, &mut stack).err() })
         .map(syntax_error_score)
@@ -22,14 +23,11 @@ fn part1<R: BufRead>(reader: R) -> String {
 fn part2<R: BufRead>(reader: R) -> String {
     let mut stack = Vec::new();
 
-    let mut scores = reader.lines()
+    let mut scores = reader
+        .lines()
         .map(Result::unwrap)
         .filter_map(|line| { autocomplete_line(&line, &mut stack).ok() })
-        .map(|remainder| {
-            remainder.chars().fold(0, |acc, c| {
-                acc * 5 + autocomplete_tool_score(c)
-            })
-        })
+        .map(autocomplete_tool_score)
         .collect::<Vec<u64>>();
 
     scores.sort();
@@ -95,14 +93,18 @@ fn syntax_error_score(c: char) -> u32 {
     }
 }
 
-fn autocomplete_tool_score(c: char) -> u64 {
-    match c {
-        ')' => 1,
-        ']' => 2,
-        '}' => 3,
-        '>' => 4,
-        _ => panic!("illegal char {}", c)
-    }
+fn autocomplete_tool_score(remainder: String) -> u64 {
+    remainder
+        .chars()
+        .fold(0, |acc, c| {
+            acc * 5 + match c {
+                ')' => 1,
+                ']' => 2,
+                '}' => 3,
+                '>' => 4,
+                _ => panic!("illegal char {}", c)
+            }
+        })
 }
 
 fn read_input() -> BufReader<File> {
