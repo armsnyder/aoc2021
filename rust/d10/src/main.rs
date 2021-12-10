@@ -13,7 +13,7 @@ fn part1<R: BufRead>(reader: R) -> String {
 
     reader.lines()
         .map(Result::unwrap)
-        .filter_map(|line| { repair_line(&line, &mut stack).err() })
+        .filter_map(|line| { autocomplete_line(&line, &mut stack).err() })
         .map(syntax_error_score)
         .sum::<u32>()
         .to_string()
@@ -24,7 +24,7 @@ fn part2<R: BufRead>(reader: R) -> String {
 
     let mut scores = reader.lines()
         .map(Result::unwrap)
-        .filter_map(|line| { repair_line(&line, &mut stack).ok() })
+        .filter_map(|line| { autocomplete_line(&line, &mut stack).ok() })
         .map(|remainder| {
             remainder.chars().fold(0, |acc, c| {
                 acc * 5 + autocomplete_tool_score(c)
@@ -37,10 +37,12 @@ fn part2<R: BufRead>(reader: R) -> String {
     scores[scores.len() / 2].to_string()
 }
 
-fn repair_line(s: &str, stack: &mut Vec<char>) -> Result<String, char> {
+// autocomplete_line returns Ok with the autocompleted characters if the line is valid but
+// incomplete, or Err with the first invalid character if the line is invalid.
+fn autocomplete_line(line: &str, stack: &mut Vec<char>) -> Result<String, char> {
     stack.clear();
 
-    for c in s.chars() {
+    for c in line.chars() {
         match c {
             '(' | '[' | '{' | '<' => {
                 stack.push(c);
