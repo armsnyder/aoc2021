@@ -21,8 +21,8 @@ impl<T: BitReader> ReadFrom<T> for PacketHeader {
 
 pub struct Version(u32);
 
-impl Version {
-    pub fn as_u32(&self) -> u32 {
+impl Into<u32> for Version {
+    fn into(self) -> u32 {
         self.0
     }
 }
@@ -60,21 +60,36 @@ impl<T: BitReader> ReadFrom<T> for LengthType {
         match reader.read(1).unwrap() {
             0 => LengthType::Bits,
             1 => LengthType::Packets,
-            x => panic!("illegal length type {}", x),
+            _ => unreachable!(),
         }
     }
 }
 
+#[derive(Debug)]
 pub enum PacketType {
     Literal,
-    Operation,
+    Sum,
+    Product,
+    Minimum,
+    Maximum,
+    GreaterThan,
+    LessThan,
+    EqualTo,
 }
 
 impl<T: BitReader> ReadFrom<T> for PacketType {
     fn read_from(reader: &mut T) -> Self {
-        match reader.read(3).unwrap() {
+        let id = reader.read(3).unwrap();
+        match id {
             4 => PacketType::Literal,
-            _ => PacketType::Operation,
+            0 => PacketType::Sum,
+            1 => PacketType::Product,
+            2 => PacketType::Minimum,
+            3 => PacketType::Maximum,
+            5 => PacketType::GreaterThan,
+            6 => PacketType::LessThan,
+            7 => PacketType::EqualTo,
+            _ => unreachable!(),
         }
     }
 }
@@ -91,25 +106,25 @@ impl<T: BitReader> ReadFrom<T> for LiteralGroup {
         match literal_type {
             1 => LiteralGroup::More(value),
             0 => LiteralGroup::Final(value),
-            _ => panic!("illegal literal group type {}", literal_type),
+            _ => unreachable!(),
         }
     }
 }
 
-pub struct Literal(u32);
+pub struct Literal(u64);
 
 impl<T: BitReader> ReadFrom<T> for Literal {
     fn read_from(reader: &mut T) -> Self {
-        let mut output = 0;
+        let mut output = 0u64;
         loop {
             let group = LiteralGroup::read_from(reader);
             match group {
                 LiteralGroup::More(v) => {
-                    output |= v;
+                    output |= v as u64;
                     output <<= 4;
                 }
                 LiteralGroup::Final(v) => {
-                    output |= v;
+                    output |= v as u64;
                     return Literal(output);
                 }
             }
@@ -117,8 +132,8 @@ impl<T: BitReader> ReadFrom<T> for Literal {
     }
 }
 
-impl Literal {
-    pub fn as_u32(&self) -> u32 {
+impl Into<u64> for Literal {
+    fn into(self) -> u64 {
         self.0
     }
 }

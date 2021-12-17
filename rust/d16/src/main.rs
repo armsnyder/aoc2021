@@ -16,63 +16,64 @@ fn main() {
 
 fn part1<R: BufRead>(reader: R) -> String {
     let mut reader = HexReader::from(reader);
-    let mut version_sum = 0;
-    let mut stack = vec![State::OUTER_PACKET];
-
-    while let Some(state) = stack.last() {
-        if match state {
-            State::TerminalBitIndex(i) => *i <= reader.head(),
-            State::RemainingPackets(n) => *n == 0,
-        } {
-            stack.pop();
-            continue;
-        }
-
-        if let State::RemainingPackets(n) = state {
-            let last = stack.len() - 1;
-            stack[last] = State::RemainingPackets(n - 1);
-        }
-
-        let header = PacketHeader::read_from(&mut reader);
-
-        version_sum += header.version.as_u32();
-
-        match header.packet_type {
-            PacketType::Literal => {
-                Literal::read_from(&mut reader);
-            }
-            PacketType::Operation => {
-                let length = Length::read_from(&mut reader);
-                stack.push(State::new(length, reader.head()));
-            }
-        };
-    }
-
-    version_sum.to_string()
+    let PacketResult { version, .. } = evaluate_packet(&mut reader);
+    version.to_string()
 }
 
 fn part2<R: BufRead>(reader: R) -> String {
-    reader.lines()
-        .map(Result::unwrap);
-
-    return String::new();
+    let mut reader = HexReader::from(reader);
+    let PacketResult { literal, .. } = evaluate_packet(&mut reader);
+    literal.to_string()
 }
 
+fn evaluate_packet(reader: &mut HexReader) -> PacketResult {
+    let PacketHeader { version, packet_type } = PacketHeader::read_from(reader);
 
-enum State {
-    TerminalBitIndex(u32),
-    RemainingPackets(u32),
-}
-
-impl State {
-    const OUTER_PACKET: State = State::RemainingPackets(1);
-
-    fn new(length: Length, head: u32) -> Self {
-        match length.length_type {
-            LengthType::Bits => State::TerminalBitIndex(head + length.length),
-            LengthType::Packets => State::RemainingPackets(length.length),
+    match packet_type {
+        PacketType::Literal => {
+            let literal: u64 = Literal::read_from(reader).into();
+            let version: u32 = version.into();
+            PacketResult { version, literal }
         }
+
+        operation => apply_operation(reader, version.into(), match operation {
+            PacketType::Sum => |values: Vec<u64>| values.into_iter().sum(),
+            PacketType::Product => |values: Vec<u64>| values.into_iter().product(),
+            PacketType::Minimum => |values: Vec<u64>| values.into_iter().min().unwrap(),
+            PacketType::Maximum => |values: Vec<u64>| values.into_iter().max().unwrap(),
+            PacketType::GreaterThan => |values: Vec<u64>| if values[0] > values[1] { 1 } else { 0 },
+            PacketType::LessThan => |values: Vec<u64>| if values[0] < values[1] { 1 } else { 0 },
+            PacketType::EqualTo => |values: Vec<u64>| if values[0] == values[1] { 1 } else { 0 },
+            _ => unreachable!()
+        }),
     }
+}
+
+fn apply_operation(reader: &mut HexReader, version: u32, op: impl Fn(Vec<u64>) -> u64) -> PacketResult {
+    let Length { length_type, length } = Length::read_from(reader);
+
+    let sub_results = match length_type {
+        LengthType::Packets => (0..length).map(|_| evaluate_packet(reader)).collect::<Vec<PacketResult>>(),
+        LengthType::Bits => {
+            let tail = reader.head() + length;
+            let mut sub_results = Vec::new();
+            while reader.head() < tail {
+                sub_results.push(evaluate_packet(reader));
+            }
+            sub_results
+        }
+    };
+
+    let values = sub_results.iter().map(|r| r.literal).collect::<Vec<u64>>();
+    let literal = op(values);
+    let version = version + sub_results.iter().map(|r| r.version).sum::<u32>();
+
+    PacketResult { literal, version }
+}
+
+struct PacketResult {
+    version: u32,
+    literal: u64,
 }
 
 fn read_input() -> BufReader<File> {
@@ -85,11 +86,8 @@ mod tests {
 
     use std::fs;
     use test::Bencher;
-    use crate::packet::BitReader;
 
     use super::*;
-
-    const BASIC: &[u8] = include_str!("testdata/basic.txt").as_bytes();
 
     #[test]
     fn test_part1() {
@@ -102,23 +100,15 @@ mod tests {
     }
 
     #[test]
-    fn test_hex_reader() {
-        let mut reader = HexReader::from(BufReader::new("D2FE28".as_bytes()));
-        assert_eq!(reader.read(3), Some(6));
-        assert_eq!(reader.read(3), Some(4));
-        assert_eq!(reader.read(3), Some(5));
-        assert_eq!(reader.read(8), Some(252));
-        assert_eq!(reader.read(4), Some(5));
-        assert_eq!(reader.read(2), Some(0));
-        assert_eq!(reader.read(1), Some(0));
-        assert_eq!(reader.read(1), None);
-        let mut reader = HexReader::from(BufReader::new("D2FE28".as_bytes()));
-        assert_eq!(reader.read(20), Some(864226));
-    }
-
-    #[test]
     fn test_part2() {
-        assert_eq!(part2(BufReader::new(BASIC)), "")
+        assert_eq!(part2(BufReader::new("C200B40A82".as_bytes())), "3");
+        assert_eq!(part2(BufReader::new("04005AC33890".as_bytes())), "54");
+        assert_eq!(part2(BufReader::new("880086C3E88112".as_bytes())), "7");
+        assert_eq!(part2(BufReader::new("CE00C43D881120".as_bytes())), "9");
+        assert_eq!(part2(BufReader::new("D8005AC2A8F0".as_bytes())), "1");
+        assert_eq!(part2(BufReader::new("F600BC2D8F".as_bytes())), "0");
+        assert_eq!(part2(BufReader::new("9C005AC2F8F0".as_bytes())), "0");
+        assert_eq!(part2(BufReader::new("9C0141080250320F1802104A08".as_bytes())), "1");
     }
 
     #[bench]
