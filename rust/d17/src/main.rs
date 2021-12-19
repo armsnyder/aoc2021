@@ -15,13 +15,65 @@ fn part1<R: BufRead>(reader: R) -> String {
 
 fn part2<R: BufRead>(reader: R) -> String {
     let target_area = parse_input(reader);
-    let max_initial_vel_y = -target_area.y.start;
-    let min_initial_vel_y = 0;
 
-    // let initial_vel_y = -target_area.y.start - 1;
-    // let num_steps = (-target_area.y.start) * 2;
+    let min_vy = target_area.y.start;
+    let max_vy = -target_area.y.start - 1;
+    // Using the quadratic formula to solve for "n" in the Triangular number formula.
+    // See: https://en.wikipedia.org/wiki/Triangular_number#Formula
+    // This is a minor optimization over just using "0" as the min x velocity.
+    let min_vx = (-1 + (((1 + 8 * target_area.x.start) as f32).sqrt() as i32)) / 2;
+    let max_vx = target_area.x.end;
 
-    return String::new();
+    (min_vy..=max_vy)
+        .map(|vy| simulate_y_get_steps(vy, &target_area.y))
+        .map(|steps| (min_vx..=max_vx)
+            .filter(|&vx| simulate_x(vx, &target_area.x, &steps))
+            .count())
+        .sum::<usize>()
+        .to_string()
+}
+
+fn simulate_y_get_steps(vy: i32, target_y: &RangeInclusive) -> Vec<i32> {
+    let mut output = Vec::new();
+    let mut vy = vy;
+    let mut py = 0;
+    let mut steps = 0;
+
+    while py > target_y.start {
+        steps += 1;
+        py += vy;
+        vy -= 1;
+
+        if target_y.contains(py) {
+            output.push(steps)
+        }
+    }
+
+    output
+}
+
+fn simulate_x(vx: i32, target_x: &RangeInclusive, steps: &Vec<i32>) -> bool {
+    let mut vx = vx;
+    let mut px = 0;
+    let mut step = 0;
+
+    for want_step in steps {
+        while step < *want_step {
+            step += 1;
+            px += vx;
+            vx = match vx.cmp(&0) {
+                std::cmp::Ordering::Equal => 0,
+                std::cmp::Ordering::Less => vx + 1,
+                std::cmp::Ordering::Greater => vx - 1,
+            }
+        }
+
+        if target_x.contains(px) {
+            return true;
+        }
+    }
+
+    false
 }
 
 fn parse_input<R: BufRead>(reader: R) -> Area {
@@ -55,6 +107,12 @@ impl From<&str> for RangeInclusive {
             start: start.parse().unwrap(),
             end: end.parse().unwrap(),
         }
+    }
+}
+
+impl RangeInclusive {
+    fn contains(&self, n: i32) -> bool {
+        self.start <= n && n <= self.end
     }
 }
 
