@@ -20,10 +20,28 @@ fn part1<R: BufRead>(reader: R) -> String {
 }
 
 fn part2<R: BufRead>(reader: R) -> String {
-    String::new()
+    let numbers = reader.lines()
+        .map(Result::unwrap)
+        .map(Number::from)
+        .collect::<Vec<Number>>();
+
+    let mut max_magnitude = 0;
+
+    for i in 0..numbers.len() {
+        for j in 0..numbers.len() {
+            if i != j {
+                let magnitude = (numbers[i].clone() + numbers[j].clone()).magnitude();
+                if magnitude > max_magnitude {
+                    max_magnitude = magnitude;
+                }
+            }
+        }
+    }
+
+    max_magnitude.to_string()
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum Number {
     Single(i32),
     Pair(Box<Number>, Box<Number>),
@@ -38,7 +56,7 @@ impl Number {
         self.reduce_explode_once_depth(0).is_some()
     }
 
-    fn reduce_explode_once_depth(&mut self, depth: u32) -> Option<(i32, i32)> {
+    fn reduce_explode_once_depth(&mut self, depth: i32) -> Option<(i32, i32)> {
         let depth = depth + 1;
         match self {
             Number::Pair(l, r) => {
@@ -114,9 +132,9 @@ impl Number {
         }
     }
 
-    fn magnitude(&self) -> u64 {
+    fn magnitude(&self) -> i32 {
         match self {
-            Number::Single(n) => *n as u64,
+            Number::Single(n) => *n,
             Number::Pair(l, r) => l.magnitude() * 3 + r.magnitude() * 2,
         }
     }
@@ -192,7 +210,7 @@ mod tests {
 
     #[test]
     fn test_part2() {
-        assert_eq!(part2(BufReader::new(BASIC)), "");
+        assert_eq!(part2(BufReader::new(BASIC)), "3993");
     }
 
     #[test]
