@@ -46,7 +46,7 @@ fn part1<R: BufRead>(reader: R) -> String {
 fn part2<R: BufRead>(reader: R) -> String {
     let (p1_pos, p2_pos) = parse_input(reader);
     let args = State::new(p1_pos, p2_pos);
-    let mut memo = HashMap::new();
+    let mut memo = Memo::default();
     let wins = count_multiverse_winners(args, &mut memo);
     max(wins.p1_wins, wins.p2_wins).to_string()
 }
@@ -65,9 +65,9 @@ fn read_pos<R: BufRead>(lines: &mut Lines<R>) -> u8 {
     lines.next().unwrap().unwrap().split(": ").nth(1).unwrap().parse::<u8>().unwrap() - 1
 }
 
-fn count_multiverse_winners(state: State, memo: &mut HashMap<State, Wins>) -> Wins {
+fn count_multiverse_winners(state: State, memo: &mut Memo) -> Wins {
     if let Some(wins) = memo.get(&state) {
-        *wins
+        wins
     } else {
         const MAX_TURNS: u8 = 21;
 
@@ -111,6 +111,27 @@ struct State {
     p1_pos: u8,
     p2_pos: u8,
     is_p1_turn: bool,
+}
+
+#[derive(Default)]
+struct Memo(HashMap<State, Wins>);
+
+impl Memo {
+    fn get(&self, state: &State) -> Option<Wins> {
+        self.0.get(state).map(|w| *w).or_else(|| {
+            self.0.get(&State {
+                p1_score: state.p2_score,
+                p2_score: state.p1_score,
+                p1_pos: state.p2_pos,
+                p2_pos: state.p1_pos,
+                is_p1_turn: !state.is_p1_turn,
+            }).map(|w| Wins { p1_wins: w.p2_wins, p2_wins: w.p1_wins })
+        })
+    }
+
+    fn insert(&mut self, state: State, wins: Wins) {
+        self.0.insert(state, wins);
+    }
 }
 
 impl State {
