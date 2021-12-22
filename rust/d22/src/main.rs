@@ -1,5 +1,6 @@
 #![feature(test)]
 
+use std::cmp::{max, min};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -9,43 +10,41 @@ fn main() {
 }
 
 fn part1<R: BufRead>(reader: R) -> String {
-    let steps = parse_input(reader);
-    let mut grid: [[[bool; 101]; 101]; 101] = [[[false; 101]; 101]; 101];
-    let max_area = Area {
-        x: RangeInclusive(-50, 50),
-        y: RangeInclusive(-50, 50),
-        z: RangeInclusive(-50, 50),
+    let initialization_volume = Volume {
+        0: Range(-50, 51),
+        1: Range(-50, 51),
+        2: Range(-50, 51),
     };
-    for step in steps {
-        if !step.area.within(&max_area) {
+
+    let mut reactor = Reactor::default();
+
+    for step in parse_input(reader) {
+        if !initialization_volume.contains(&step.volume) {
             continue;
         }
-        for x in step.area.x.0 + 50..=step.area.x.1 + 50 {
-            for y in step.area.y.0 + 50..=step.area.y.1 + 50 {
-                for z in step.area.z.0 + 50..=step.area.z.1 + 50 {
-                    grid[x as usize][y as usize][z as usize] = step.on;
-                }
-            }
+
+        if step.on {
+            reactor.add(step.volume);
+        } else {
+            reactor.sub(step.volume);
         }
     }
 
-    let mut total = 0u64;
-
-    for i in 0..=100 {
-        for j in 0..=100 {
-            for k in 0..=100 {
-                if grid[i][j][k] {
-                    total += 1;
-                }
-            }
-        }
-    }
-
-    total.to_string()
+    reactor.count().to_string()
 }
 
 fn part2<R: BufRead>(reader: R) -> String {
-    String::new()
+    let mut reactor = Reactor::default();
+
+    for step in parse_input(reader) {
+        if step.on {
+            reactor.add(step.volume);
+        } else {
+            reactor.sub(step.volume);
+        }
+    }
+
+    reactor.count().to_string()
 }
 
 fn parse_input<R: BufRead>(reader: R) -> Vec<Step> {
@@ -56,50 +55,99 @@ fn parse_input<R: BufRead>(reader: R) -> Vec<Step> {
             let mut step = Step::default();
             step.on = split.next().unwrap() == "on";
             let mut split = split.next().unwrap().splitn(3, ",");
-            step.area.x = parse_range(split.next().unwrap());
-            step.area.y = parse_range(split.next().unwrap());
-            step.area.z = parse_range(split.next().unwrap());
+            step.volume.0 = parse_range(split.next().unwrap());
+            step.volume.1 = parse_range(split.next().unwrap());
+            step.volume.2 = parse_range(split.next().unwrap());
             step
         })
         .collect()
 }
 
-fn parse_range(s: &str) -> RangeInclusive {
+fn parse_range(s: &str) -> Range {
     let s = s.splitn(2, "=").nth(1).unwrap();
     let mut split = s.splitn(2, "..");
-    let i = split.next().unwrap().parse().unwrap();
-    let j = split.next().unwrap().parse().unwrap();
-    RangeInclusive(i, j)
+    let i = split.next().unwrap().parse::<i32>().unwrap();
+    let j = split.next().unwrap().parse::<i32>().unwrap() + 1;
+    Range(i, j)
 }
 
 #[derive(Default)]
 struct Step {
-    area: Area,
+    volume: Volume,
     on: bool,
 }
 
-#[derive(Default)]
-struct Area {
-    x: RangeInclusive,
-    y: RangeInclusive,
-    z: RangeInclusive,
+#[derive(Default, Copy, Clone)]
+struct Volume(Range, Range, Range);
+
+impl Volume {
+    fn contains(&self, other: &Self) -> bool {
+        self.0.contains(&other.0) && self.1.contains(&other.1) && self.2.contains(&other.2)
+    }
+
+    fn sub(self, other: &Self) -> Vec<Self> {
+        self.0.trisect(&other.0).into_iter().enumerate()
+            .filter(|(_, i_range)| i_range.len() > 0)
+            .flat_map(|(i, i_range)| {
+                self.1.trisect(&other.1).into_iter().enumerate()
+                    .filter(|(_, j_range)| j_range.len() > 0)
+                    .flat_map(move |(j, j_range)| {
+                        self.2.trisect(&other.2).into_iter().enumerate()
+                            .filter(|(_, k_range)| k_range.len() > 0)
+                            .filter(move |(k, _)| !(i == 1 && j == 1 && *k == 1))
+                            .map(move |(_, k_range)| Volume(i_range, j_range, k_range))
+                    })
+            })
+            .collect()
+    }
+
+    fn volume(&self) -> usize {
+        self.0.len() * self.1.len() * self.2.len()
+    }
 }
 
-impl Area {
-    fn within(&self, other: &Self) -> bool {
-        self.x.within(&other.x) && self.y.within(&other.y) && self.z.within(&other.z)
+#[derive(Default, Copy, Clone)]
+struct Range(i32, i32);
+
+impl Range {
+    fn contains(&self, other: &Self) -> bool {
+        other.0 >= self.0 && other.1 <= self.1
+    }
+
+    fn trisect(self, other: &Self) -> [Range; 3] {
+        let a = min(self.1, max(self.0, other.0));
+        let b = max(self.0, min(self.1, other.1));
+        [
+            Range(self.0, a),
+            Range(a, b),
+            Range(b, self.1),
+        ]
+    }
+
+    fn len(&self) -> usize {
+        (self.1 - self.0) as usize
     }
 }
 
 #[derive(Default)]
-struct RangeInclusive(i32, i32);
+struct Reactor(Vec<Volume>);
 
-impl RangeInclusive {
-    fn within(&self, other: &Self) -> bool {
-        self.0 >= other.0 && self.1 <= other.1
+impl Reactor {
+    fn add(&mut self, volume: Volume) {
+        if !self.0.iter().any(|v| v.contains(&volume)) {
+            self.sub(volume);
+            self.0.push(volume);
+        }
+    }
+
+    fn sub(&mut self, volume: Volume) {
+        self.0 = self.0.iter().flat_map(|v| v.sub(&volume)).collect();
+    }
+
+    fn count(&self) -> usize {
+        self.0.iter().map(Volume::volume).sum()
     }
 }
-
 
 fn read_input() -> BufReader<File> {
     BufReader::new(File::open("input.txt").unwrap())
@@ -145,10 +193,10 @@ mod tests {
         b.iter(|| part1(BufReader::new(input)))
     }
 
-    #[bench]
-    fn bench_part2(b: &mut Bencher) {
-        let input = fs::read_to_string("input.txt").unwrap();
-        let input = input.as_bytes();
-        b.iter(|| part2(BufReader::new(input)))
-    }
+    // #[bench]
+    // fn bench_part2(b: &mut Bencher) {
+    //     let input = fs::read_to_string("input.txt").unwrap();
+    //     let input = input.as_bytes();
+    //     b.iter(|| part2(BufReader::new(input)))
+    // }
 }
