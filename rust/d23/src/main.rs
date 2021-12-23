@@ -1,6 +1,5 @@
 #![feature(test)]
 
-use std::fmt::{Display, Formatter, Write};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -13,22 +12,14 @@ fn main() {
 
 fn part1<R: BufRead>(reader: R) -> String {
     let start = State::from(reader);
-    let (path, cost) = astar(&start, State::successors, State::heuristic, State::success).unwrap();
-    for step in path {
-        println!("{}", step);
-        println!()
-    }
+    let (_, cost) = astar(&start, State::successors, State::heuristic, State::success).unwrap();
     cost.to_string()
 }
 
 fn part2<R: BufRead>(reader: R) -> String {
     let mut start = State::from(reader);
     start.unfold();
-    let (path, cost) = astar(&start, State::successors, State::heuristic, State::success).unwrap();
-    for step in path {
-        println!("{}", step);
-        println!()
-    }
+    let (_, cost) = astar(&start, State::successors, State::heuristic, State::success).unwrap();
     cost.to_string()
 }
 
@@ -43,17 +34,6 @@ impl From<char> for Amphipod {
             'C' => Amphipod::C,
             'D' => Amphipod::D,
             _ => unreachable!(),
-        }
-    }
-}
-
-impl Into<char> for Amphipod {
-    fn into(self) -> char {
-        match self {
-            Amphipod::A => 'A',
-            Amphipod::B => 'B',
-            Amphipod::C => 'C',
-            Amphipod::D => 'D',
         }
     }
 }
@@ -85,41 +65,6 @@ struct State {
     slot_size: usize,
 }
 
-impl Display for State {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str("#############\n#")?;
-        f.write_char(self.hall[0].map(Amphipod::into).unwrap_or('.'))?;
-        f.write_char(self.hall[1].map(Amphipod::into).unwrap_or('.'))?;
-        f.write_char('.')?;
-        f.write_char(self.hall[2].map(Amphipod::into).unwrap_or('.'))?;
-        f.write_char('.')?;
-        f.write_char(self.hall[3].map(Amphipod::into).unwrap_or('.'))?;
-        f.write_char('.')?;
-        f.write_char(self.hall[4].map(Amphipod::into).unwrap_or('.'))?;
-        f.write_char('.')?;
-        f.write_char(self.hall[5].map(Amphipod::into).unwrap_or('.'))?;
-        f.write_char(self.hall[6].map(Amphipod::into).unwrap_or('.'))?;
-        f.write_str("#\n###")?;
-        f.write_char(self.rooms[0][0].map(Amphipod::into).unwrap_or('.'))?;
-        f.write_char('#')?;
-        f.write_char(self.rooms[1][0].map(Amphipod::into).unwrap_or('.'))?;
-        f.write_char('#')?;
-        f.write_char(self.rooms[2][0].map(Amphipod::into).unwrap_or('.'))?;
-        f.write_char('#')?;
-        f.write_char(self.rooms[3][0].map(Amphipod::into).unwrap_or('.'))?;
-        f.write_str("###\n")?;
-        for slot in 1..self.slot_size {
-            f.write_str("  #")?;
-            for room in 0..State::ROOMS {
-                f.write_char(self.rooms[room][slot].map(Amphipod::into).unwrap_or('.'))?;
-                f.write_char('#')?;
-            }
-            f.write_str("  \n")?;
-        }
-        f.write_str("  #########  ")
-    }
-}
-
 impl State {
     const ROOMS: usize = 4;
     const MAX_SLOTS: usize = 4;
@@ -143,20 +88,22 @@ impl State {
     }
 
     fn successors(&self) -> Vec<(Self, usize)> {
-        for from_hall in 0..State::HALL_LEN {
-            if let Some(next) = self.successor_from_hall(from_hall) {
-                return vec![next];
-            }
+        // If an amphipod can immediately move into a room, that is always the best move.
+
+        if let Some(next) = (0..State::HALL_LEN).into_iter()
+            .find_map(|hall| self.successor_from_hall(hall)) {
+            return vec![next];
         }
 
-        for from_room in 0..State::ROOMS {
-            if let Some(next) = self.successor_from_room_direct(from_room) {
-                return vec![next];
-            }
+        if let Some(next) = (0..State::ROOMS).into_iter()
+            .find_map(|room| self.successor_from_room_to_room(room)) {
+            return vec![next];
         }
+
+        // Otherwise, explore moving amphipods into the hallway.
 
         (0..State::ROOMS).into_iter()
-            .filter_map(|room| self.successors_from_room(room))
+            .filter_map(|room| self.successors_from_room_to_hall(room))
             .flatten()
             .collect()
     }
@@ -167,88 +114,96 @@ impl State {
             Some(amphipod) => {
                 let room = amphipod.own_room();
 
-                if self.rooms[room][0..self.slot_size].iter().any(|room| match room {
-                    None => false,
-                    Some(other_amphipod) => *other_amphipod != amphipod,
-                }) {
-                    return None;
-                }
-
-                if self.blocked_hall_to_room(hall, room) {
+                if !self.is_room_available(room, amphipod) {
+                    None
+                } else if self.blocked_hall_to_room(hall, room) {
                     None
                 } else {
-                    let (slot, _) = self.rooms[room][0..self.slot_size].iter()
-                        .enumerate()
-                        .rev()
-                        .find(|(_, v)| v.is_none())
-                        .unwrap();
+                    let slot = self.get_empty_slot(room);
+
                     let mut next = self.clone();
-                    State::move_amphipod(&mut next.hall[hall], &mut next.rooms[room][slot]);
+                    next.rooms[room][slot] = next.hall[hall];
+                    next.hall[hall] = None;
+
                     Some((next, State::dist_hall_to_room(hall, room, slot) * amphipod.cost()))
                 }
             }
         }
     }
 
-    fn successor_from_room_direct(&self, from_room: usize) -> Option<(Self, usize)> {
+    fn successor_from_room_to_room(&self, from_room: usize) -> Option<(Self, usize)> {
         if self.rooms[from_room][0..self.slot_size].iter().all(|s| match s {
             None => true,
             Some(amphipod) => amphipod.own_room() == from_room
         }) {
             None
         } else {
-            let (from_slot, amphipod) = self.rooms[from_room][0..self.slot_size].iter()
-                .enumerate()
-                .find_map(|(slot, value)| value.map(|amphipod| (slot, amphipod)))
-                .unwrap();
+            let (from_slot, amphipod) = self.get_movable_amphipod_in_room(from_room);
 
             let to_room = amphipod.own_room();
 
-            if self.rooms[to_room][0..self.slot_size].iter().any(|room| match room {
-                None => false,
-                Some(other_amphipod) => *other_amphipod != amphipod,
-            }) {
+            if !self.is_room_available(to_room, amphipod) {
                 return None;
             }
 
             if self.blocked_room_to_room(from_room, to_room) {
                 None
             } else {
-                let (to_slot, _) = self.rooms[to_room][0..self.slot_size].iter()
-                    .enumerate()
-                    .rev()
-                    .find(|(_, v)| v.is_none())
-                    .unwrap();
+                let to_slot = self.get_empty_slot(to_room);
+
                 let mut next = self.clone();
                 next.rooms[to_room][to_slot] = next.rooms[from_room][from_slot];
                 next.rooms[from_room][from_slot] = None;
+
                 Some((next, State::dist_room_to_room(from_room, from_slot, to_room, to_slot) * amphipod.cost()))
             }
         }
     }
 
-    fn successors_from_room(&self, room: usize) -> Option<Vec<(Self, usize)>> {
+    fn successors_from_room_to_hall(&self, room: usize) -> Option<Vec<(Self, usize)>> {
         if self.rooms[room][0..self.slot_size].iter().all(|s| match s {
             None => true,
             Some(amphipod) => amphipod.own_room() == room
         }) {
             None
         } else {
-            let (slot, amphipod) = self.rooms[room][0..self.slot_size].iter()
-                .enumerate()
-                .find_map(|(slot, value)| value.map(|amphipod| (slot, amphipod)))
-                .unwrap();
+            let (slot, amphipod) = self.get_movable_amphipod_in_room(room);
 
             Some((0..State::HALL_LEN).into_iter()
                 .filter_map(|hall| if self.blocked_room_to_hall(room, hall) {
                     None
                 } else {
                     let mut next = self.clone();
-                    State::move_amphipod(&mut next.rooms[room][slot], &mut next.hall[hall]);
+                    next.hall[hall] = next.rooms[room][slot];
+                    next.rooms[room][slot] = None;
+
                     Some((next, State::dist_room_to_hall(room, slot, hall) * amphipod.cost()))
                 })
                 .collect::<Vec<(Self, usize)>>())
         }
+    }
+
+    fn get_empty_slot(&self, room: usize) -> usize {
+        let (slot, _) = self.rooms[room][0..self.slot_size].iter()
+            .enumerate()
+            .rev()
+            .find(|(_, v)| v.is_none())
+            .unwrap();
+        slot
+    }
+
+    fn is_room_available(&self, room: usize, amphipod: Amphipod) -> bool {
+        self.rooms[room][0..self.slot_size].iter().all(|room| match room {
+            None => true,
+            Some(other_amphipod) => *other_amphipod == amphipod,
+        })
+    }
+
+    fn get_movable_amphipod_in_room(&self, room: usize) -> (usize, Amphipod) {
+        self.rooms[room][0..self.slot_size].iter()
+            .enumerate()
+            .find_map(|(slot, value)| value.map(|amphipod| (slot, amphipod)))
+            .unwrap()
     }
 
     fn heuristic(&self) -> usize {
@@ -281,11 +236,6 @@ impl State {
                     None => false,
                     Some(amphipod) => amphipod.own_room() == room
                 }))
-    }
-
-    fn move_amphipod(from: &mut Option<Amphipod>, to: &mut Option<Amphipod>) {
-        *to = *from;
-        *from = None;
     }
 
     fn dist_hall_to_room(hall: usize, room: usize, slot: usize) -> usize {
@@ -392,14 +342,6 @@ mod tests {
         assert_eq!(part2(BufReader::new(BASIC)), "44169")
     }
 
-    #[test]
-    fn test_dist() {
-        assert_eq!(State::dist_room_to_room(0, 0, 3, 3), 11);
-        assert_eq!(State::dist_room_to_room(1, 2, 2, 1), 7);
-        assert_eq!(State::dist_hall_to_room(0, 3, 3), 12);
-        assert_eq!(State::dist_hall_to_room(6, 3, 3), 6);
-    }
-
     #[bench]
     fn bench_part1(b: &mut Bencher) {
         let input = fs::read_to_string("input.txt").unwrap();
@@ -407,12 +349,10 @@ mod tests {
         b.iter(|| part1(BufReader::new(input)))
     }
 
-    #[bench]
-    fn bench_part2(b: &mut Bencher) {
-        let input = fs::read_to_string("input.txt").unwrap();
-        let input = input.as_bytes();
-        b.iter(|| part2(BufReader::new(input)))
-    }
+    // #[bench]
+    // fn bench_part2(b: &mut Bencher) {
+    //     let input = fs::read_to_string("input.txt").unwrap();
+    //     let input = input.as_bytes();
+    //     b.iter(|| part2(BufReader::new(input)))
+    // }
 }
-
-// 71379 too high
