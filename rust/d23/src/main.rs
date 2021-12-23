@@ -291,7 +291,7 @@ impl State {
     fn dist_hall_to_room(hall: usize, room: usize, slot: usize) -> usize {
         let diff = hall as isize - room as isize;
         let mut dist = if diff > 2 {
-            hall - room + 2
+            hall - room - 2
         } else if diff < 1 {
             room - hall + 1
         } else {
@@ -390,6 +390,14 @@ mod tests {
     #[test]
     fn test_part2() {
         assert_eq!(part2(BufReader::new(BASIC)), "44169")
+    }
+
+    #[test]
+    fn test_dist() {
+        assert_eq!(State::dist_room_to_room(0, 0, 3, 3), 11);
+        assert_eq!(State::dist_room_to_room(1, 2, 2, 1), 7);
+        assert_eq!(State::dist_hall_to_room(0, 3, 3), 12);
+        assert_eq!(State::dist_hall_to_room(6, 3, 3), 6);
     }
 
     #[bench]
