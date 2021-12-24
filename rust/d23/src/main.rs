@@ -39,7 +39,7 @@ impl From<char> for Amphipod {
 }
 
 impl Amphipod {
-    fn cost(&self) -> usize {
+    fn cost(&self) -> u32 {
         match self {
             Amphipod::A => 1,
             Amphipod::B => 10,
@@ -87,7 +87,7 @@ impl State {
         self.rooms[3][2] = Some(Amphipod::C);
     }
 
-    fn successors(&self) -> Vec<(Self, usize)> {
+    fn successors(&self) -> Vec<(Self, u32)> {
         // If an amphipod can immediately move into a room, that is always the best move.
 
         if let Some(next) = (0..State::HALL_LEN).into_iter()
@@ -108,7 +108,7 @@ impl State {
             .collect()
     }
 
-    fn successor_from_hall(&self, hall: usize) -> Option<(Self, usize)> {
+    fn successor_from_hall(&self, hall: usize) -> Option<(Self, u32)> {
         match self.hall[hall] {
             None => None,
             Some(amphipod) => {
@@ -131,7 +131,7 @@ impl State {
         }
     }
 
-    fn successor_from_room_to_room(&self, from_room: usize) -> Option<(Self, usize)> {
+    fn successor_from_room_to_room(&self, from_room: usize) -> Option<(Self, u32)> {
         if self.rooms[from_room][0..self.slot_size].iter().all(|s| match s {
             None => true,
             Some(amphipod) => amphipod.own_room() == from_room
@@ -160,7 +160,7 @@ impl State {
         }
     }
 
-    fn successors_from_room_to_hall(&self, room: usize) -> Option<Vec<(Self, usize)>> {
+    fn successors_from_room_to_hall(&self, room: usize) -> Option<Vec<(Self, u32)>> {
         if self.rooms[room][0..self.slot_size].iter().all(|s| match s {
             None => true,
             Some(amphipod) => amphipod.own_room() == room
@@ -179,7 +179,7 @@ impl State {
 
                     Some((next, State::dist_room_to_hall(room, slot, hall) * amphipod.cost()))
                 })
-                .collect::<Vec<(Self, usize)>>())
+                .collect::<Vec<(Self, u32)>>())
         }
     }
 
@@ -206,7 +206,7 @@ impl State {
             .unwrap()
     }
 
-    fn heuristic(&self) -> usize {
+    fn heuristic(&self) -> u32 {
         let mut total = 0;
 
         for room in 0..State::ROOMS {
@@ -238,7 +238,7 @@ impl State {
                 }))
     }
 
-    fn dist_hall_to_room(hall: usize, room: usize, slot: usize) -> usize {
+    fn dist_hall_to_room(hall: usize, room: usize, slot: usize) -> u32 {
         let diff = hall as isize - room as isize;
         let mut dist = if diff > 2 {
             hall - room - 2
@@ -246,24 +246,24 @@ impl State {
             room - hall + 1
         } else {
             0
-        };
+        } as u32;
         dist *= 2;
         if hall == 0 || hall == 6 {
             dist -= 1
         }
-        dist + 2 + slot
+        dist + 2 + slot as u32
     }
 
-    fn dist_room_to_hall(room: usize, slot: usize, hall: usize) -> usize {
+    fn dist_room_to_hall(room: usize, slot: usize, hall: usize) -> u32 {
         State::dist_hall_to_room(hall, room, slot)
     }
 
-    fn dist_room_to_room(from_room: usize, from_slot: usize, to_room: usize, to_slot: usize) -> usize {
+    fn dist_room_to_room(from_room: usize, from_slot: usize, to_room: usize, to_slot: usize) -> u32 {
         (if from_room > to_room {
             from_room - to_room
         } else {
             to_room - from_room
-        }) * 2 + 2 + from_slot + to_slot
+        }) as u32 * 2 + 2 + from_slot as u32 + to_slot as u32
     }
 
     fn blocked_hall_to_room(&self, hall: usize, room: usize) -> bool {
